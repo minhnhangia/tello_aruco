@@ -139,9 +139,16 @@ public:
       tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
     }
 
+    // Create QoS profile for publishers
+    rmw_qos_profile_t publisher_qos = rmw_qos_profile_default;
+    publisher_qos.reliability = static_cast<rmw_qos_reliability_policy_t>(image_sub_qos_reliability_);
+    publisher_qos.durability = static_cast<rmw_qos_durability_policy_t>(image_sub_qos_durability_);
+    publisher_qos.depth = image_sub_qos_depth_;
+    auto pub_qos = rclcpp::QoS(rclcpp::QoSInitialization::from_rmw(publisher_qos), publisher_qos);
+
     detection_pub_ = create_publisher<aruco_opencv_msgs::msg::ArucoDetection>(
-      "aruco_detections", 5);
-    debug_pub_ = create_publisher<sensor_msgs::msg::Image>("~/debug", 5);
+      "aruco_detections", pub_qos);
+    debug_pub_ = create_publisher<sensor_msgs::msg::Image>("~/debug", pub_qos);
 
     return LifecycleNodeInterface::CallbackReturn::SUCCESS;
   }
