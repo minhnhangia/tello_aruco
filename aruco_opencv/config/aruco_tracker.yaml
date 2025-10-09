@@ -1,6 +1,6 @@
 /**:
   ros__parameters:
-    cam_base_topic: /tello1/image_raw
+    cam_base_topic: image_raw
     output_frame: ''
 
     marker_dict: 5X5_250
