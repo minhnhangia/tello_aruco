@@ -19,33 +19,33 @@
     # https://docs.opencv.org/4.2.0/d5/dae/tutorial_aruco_detection.html
     aruco:
       # minimum window size for adaptive thresholding before finding contours
-      adaptiveThreshWinSizeMin: 3
+      adaptiveThreshWinSizeMin: 5
 
       # maximum window size for adaptive thresholding before finding contours 
-      adaptiveThreshWinSizeMax: 23
+      adaptiveThreshWinSizeMax: 35
 
       # increments from adaptiveThreshWinSizeMin to adaptiveThreshWinSizeMax during the thresholding
-      adaptiveThreshWinSizeStep: 10
+      adaptiveThreshWinSizeStep: 5
 
       # constant for adaptive thresholding before finding contours
-      adaptiveThreshConstant: 7.0
+      adaptiveThreshConstant: 5.0
 
       # determine minimum perimeter for marker contour to be detected.
       # This is defined as a rate respect to the maximum dimension of the input image
-      minMarkerPerimeterRate: 0.03
+      minMarkerPerimeterRate: 0.015
 
       # determine maximum perimeter for marker contour to be detected.
       # This is defined as a rate respect to the maximum dimension of the input image
       maxMarkerPerimeterRate: 4.0
 
       # minimum accuracy during the polygonal approximation process to determine which contours are squares.
-      polygonalApproxAccuracyRate: 0.03
+      polygonalApproxAccuracyRate: 0.05
 
       # minimum distance between corners for detected markers relative to its perimeter
-      minCornerDistanceRate: 0.05
+      minCornerDistanceRate: 0.03
 
       # minimum distance of any corner to the image border for detected markers
-      minDistanceToBorder: 3
+      minDistanceToBorder: 5
 
       # minimum average distance between the corners of the two markers to be grouped (default 0.125).
       # The rate is relative to the smaller perimeter of the two markers.
@@ -95,7 +95,7 @@
       useAruco3Detection: true
 
       # (required OpenCV 4.6.0+) minimum side length of a marker in the canonical image. Latter is the binarized image in which contours are searched
-      minSideLengthCanonicalImg: 32
+      minSideLengthCanonicalImg: 20
 
       # (required OpenCV 4.6.0+) range [0,1], eq (2) from paper. The parameter tau_i has a direct influence on the processing speed.
       minMarkerLengthRatioOriginalImg: 0.0
