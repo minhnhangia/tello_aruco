@@ -95,7 +95,7 @@
       useAruco3Detection: true
 
       # (required OpenCV 4.6.0+) minimum side length of a marker in the canonical image. Latter is the binarized image in which contours are searched
-      minSideLengthCanonicalImg: 20
+      minSideLengthCanonicalImg: 25
 
       # (required OpenCV 4.6.0+) range [0,1], eq (2) from paper. The parameter tau_i has a direct influence on the processing speed.
       minMarkerLengthRatioOriginalImg: 0.0
