@@ -315,7 +315,7 @@ protected:
     get_parameter("board_descriptions_path", board_descriptions_path_);
 
     RCLCPP_INFO(get_logger(), "Aruco Parameters:");
-    retrieve_aruco_parameters(*this, detector_parameters_, true);
+    retrieve_aruco_parameters(*this, detector_parameters_, false);
   }
 
   rcl_interfaces::msg::SetParametersResult callback_on_set_parameters(
