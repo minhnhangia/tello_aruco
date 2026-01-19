@@ -1,0 +1,180 @@
+Runtime ArUco Configuration Switching - Architecture
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              USER INTERFACE                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    ┌───────────────────┐     ┌───────────────────┐     ┌─────────────────┐
+    │ switch_marker_    │     │   ros2 param      │     │  rqt_reconfig   │
+    │     config        │     │      set          │     │      (GUI)      │
+    │   (CLI Tool)      │     │  (Direct Cmd)     │     │                 │
+    └─────────┬─────────┘     └─────────┬─────────┘     └────────┬────────┘
+              │                         │                         │
+              └─────────────────────────┼─────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      ROS2 PARAMETER SERVICE                                 │
+│                   /aruco_tracker/set_parameters                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        ARUCO_TRACKER NODE                                   │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ 1. VALIDATION PHASE (callback_on_set_parameters)                      │ │
+│  │    ┌──────────────────────────────────────────────────────────────┐  │ │
+│  │    │ if (param == "marker_dict")                                  │  │ │
+│  │    │   • Check ARUCO_DICT_MAP.find(value) != end()               │  │ │
+│  │    │   • Reject if invalid: "Unsupported dictionary name"        │  │ │
+│  │    │                                                              │  │ │
+│  │    │ if (param == "marker_size")                                  │  │ │
+│  │    │   • Check value > 0.0                                        │  │ │
+│  │    │   • Reject if invalid: "marker_size must be positive"       │  │ │
+│  │    └──────────────────────────────────────────────────────────────┘  │ │
+│  │                                ✓ VALID                                 │ │
+│  │                                │                                       │ │
+│  │    ┌───────────────────────────▼───────────────────────────────────┐  │ │
+│  │ 2. APPLICATION PHASE (callback_post_set_parameters)                │  │ │
+│  │    │                                                               │  │ │
+│  │    │ if (param == "marker_dict")                                  │  │ │
+│  │    │   marker_dict_ = value                                       │  │ │
+│  │    │   dict_changed = true                                        │  │ │
+│  │    │                                                               │  │ │
+│  │    │ if (param == "marker_size")                                  │  │ │
+│  │    │   marker_size_ = value                                       │  │ │
+│  │    │   update_marker_obj_points()                                 │  │ │
+│  │    │                                                               │  │ │
+│  │    │ if (dict_changed)                                            │  │ │
+│  │    │   ┌──────────────────────────────────────────────────────┐  │  │ │
+│  │    │   │ // Reload ArUco dictionary                          │  │  │ │
+│  │    │   │ dictionary_ = cv::aruco::getPredefinedDictionary(   │  │  │ │
+│  │    │   │     ARUCO_DICT_MAP.at(marker_dict_));               │  │  │ │
+│  │    │   │ LOG: "ArUco dictionary reloaded: <name>"            │  │  │ │
+│  │    │   └──────────────────────────────────────────────────────┘  │  │ │
+│  │    └───────────────────────────────────────────────────────────────┘  │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ 3. DETECTION LOOP (process_image callback)                            │ │
+│  │    ┌─────────────────────────────────────────────────────┐            │ │
+│  │    │ cv::aruco::detectMarkers(                           │            │ │
+│  │    │     image,                                          │            │ │
+│  │    │     dictionary_,  ◄─── Uses updated dictionary     │            │ │
+│  │    │     corners, ids,                                   │            │ │
+│  │    │     detector_parameters_);                          │            │ │
+│  │    │                                                      │            │ │
+│  │    │ cv::solvePnP(                                       │            │ │
+│  │    │     marker_obj_points_, ◄─── Uses updated size     │            │ │
+│  │    │     corners[i], camera_matrix_, distortion,         │            │ │
+│  │    │     rvec, tvec);                                    │            │ │
+│  │    └─────────────────────────────────────────────────────┘            │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            OUTPUT TOPICS                                    │
+│                                                                             │
+│  /aruco_detections  ────►  Updated poses with new marker size              │
+│  /aruco_tracker/debug ───►  Visualization with correct marker axes         │
+│  /tf (optional) ─────────►  Marker transforms with updated dimensions      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+PARAMETER FLOW TIMELINE
+═══════════════════════════════════════════════════════════════════════════════
+
+  User Command                Node Processing              Detection Result
+  ────────────────────────────────────────────────────────────────────────────
+
+  t=0ms: User runs           │                             │
+  switch_marker_config       │                             │
+         │                   │                             │
+         └──► SetParameters  │                             │
+              Request        │                             │
+                             │                             │
+  t=1ms:                     ├─► callback_on_set_params   │
+                             │   • Validate dict name      │
+                             │   • Validate size > 0       │
+                             │   • Return SUCCESS          │
+                             │                             │
+  t=2ms:                     ├─► callback_post_set_params │
+                             │   • marker_dict_ updated    │
+                             │   • marker_size_ updated    │
+                             │   • dictionary_ reloaded    │
+                             │   • obj_points recalculated │
+                             │   • LOG: "reloaded: 6X6"   │
+                             │                             │
+  t=3ms:                     │                             │
+  ◄──── Response: SUCCESS    │                             │
+         "Config updated"    │                             │
+                             │                             │
+  t=20ms: [Next image frame] │                             │
+                             ├─► process_image()          │
+                             │   • detectMarkers() with    │
+                             │     NEW dictionary         │
+                             │   • solvePnP() with        │
+                             │     NEW marker_size        │
+                             │                            ├─► Detection with
+                             │                            │   new config!
+                             │                            │
+  t=50ms: [Another frame]    ├─► process_image()         │
+                             │   continues normally...   ├─► Detection OK
+                             │                            │
+
+
+KEY DESIGN PATTERNS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. VALIDATION-APPLICATION SEPARATION
+   ┌──────────────┐   Valid    ┌──────────────┐
+   │  Validate    │ ─────────► │   Apply      │
+   │  (Pre-check) │            │  (Post-set)  │
+   └──────┬───────┘            └──────────────┘
+          │ Invalid
+          └────────► Reject + Error Message
+   
+   ✓ System never enters invalid state
+   ✓ Clear error feedback to user
+
+2. ATOMIC UPDATE
+   dictionary_ (cv::Ptr) ──┬──► Old Dictionary
+                           │
+   [Parameter Change]      │
+                           │
+   dictionary_ (cv::Ptr) ──┴──► New Dictionary
+   
+   ✓ Single pointer assignment (atomic)
+   ✓ No intermediate invalid state
+   ✓ Thread-safe with cv::Ptr reference counting
+
+3. ZERO DOWNTIME
+   Frame 1: detectMarkers(dict_A) ───► Detections
+                                    ↓
+                        [Parameter Change: dict_A → dict_B]
+                                    ↓
+   Frame 2: detectMarkers(dict_B) ───► Detections
+   
+   ✓ Change happens BETWEEN frames
+   ✓ No frame skipped or lost
+   ✓ Detection continues uninterrupted
+
+
+MULTI-DRONE SCENARIO
+═══════════════════════════════════════════════════════════════════════════════
+
+  ┌─────────────┐  5X5_250 @ 0.19m  ┌─────────────┐
+  │   tello1/   │◄──────────────────►│  Small      │
+  │aruco_tracker│                    │  Markers    │
+  └─────────────┘                    │  (0-50)     │
+                                     └─────────────┘
+  
+  ┌─────────────┐  6X6_250 @ 0.30m  ┌─────────────┐
+  │   tello2/   │◄──────────────────►│  Large      │
+  │aruco_tracker│                    │  Markers    │
+  └─────────────┘                    │  (51-100)   │
+                                     └─────────────┘
+
+  Each drone operates independently with its own configuration!

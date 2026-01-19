@@ -60,6 +60,7 @@ install(
   PROGRAMS
     scripts/create_board
     scripts/create_marker
+    scripts/switch_marker_config
   DESTINATION lib/${PROJECT_NAME}
 )
 

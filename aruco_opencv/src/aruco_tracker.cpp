@@ -264,7 +264,7 @@ protected:
     declare_param(*this, "cam_base_topic", "camera/image_raw");
     declare_param(*this, "image_is_rectified", false, false);
     declare_param(*this, "output_frame", "");
-    declare_param(*this, "marker_dict", "4X4_50");
+    declare_param(*this, "marker_dict", "4X4_50", true);
     declare_param(*this, "image_sub_compressed", false);
     declare_param(
       *this, "image_sub_qos.reliability",
@@ -333,6 +333,14 @@ protected:
           RCLCPP_ERROR_STREAM(get_logger(), result.reason);
           return result;
         }
+      } else if (param.get_name() == "marker_dict") {
+        std::string dict_name = param.as_string();
+        if (ARUCO_DICT_MAP.find(dict_name) == ARUCO_DICT_MAP.end()) {
+          result.successful = false;
+          result.reason = "Unsupported dictionary name: " + dict_name;
+          RCLCPP_ERROR_STREAM(get_logger(), result.reason);
+          return result;
+        }
       }
     }
 
@@ -342,10 +350,15 @@ protected:
   void callback_post_set_parameters(const std::vector<rclcpp::Parameter> & parameters)
   {
     bool aruco_param_changed = false;
+    bool dict_changed = false;
+    
     for (auto & param : parameters) {
       if (param.get_name() == "marker_size") {
         marker_size_ = param.as_double();
         update_marker_obj_points();
+      } else if (param.get_name() == "marker_dict") {
+        marker_dict_ = param.as_string();
+        dict_changed = true;
       } else if (param.get_name().rfind("aruco", 0) == 0) {
         aruco_param_changed = true;
       } else {
@@ -356,6 +369,19 @@ protected:
       RCLCPP_INFO_STREAM(
         get_logger(),
         "Parameter \"" << param.get_name() << "\" changed to " << param.value_to_string());
+    }
+
+    if (dict_changed) {
+      // Reload ArUco dictionary
+      #if CV_VERSION_MAJOR > 4 || CV_VERSION_MAJOR == 4 && CV_VERSION_MINOR >= 7
+      dictionary_ = cv::makePtr<cv::aruco::Dictionary>(cv::aruco::getPredefinedDictionary(
+          ARUCO_DICT_MAP.at(marker_dict_)));
+      #else
+      dictionary_ = cv::aruco::getPredefinedDictionary(ARUCO_DICT_MAP.at(marker_dict_));
+      #endif
+      RCLCPP_INFO_STREAM(
+        get_logger(),
+        "ArUco dictionary reloaded: " << marker_dict_);
     }
 
     if (aruco_param_changed) {

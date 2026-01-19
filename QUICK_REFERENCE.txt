@@ -1,0 +1,125 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║              ARUCO RUNTIME CONFIG SWITCHING - QUICK REFERENCE                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ SWITCH CONFIGURATION (EASIEST METHOD)                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Switch to 6x6_250 with 0.30m markers:
+  $ ros2 run aruco_opencv switch_marker_config 6X6_250 0.30
+
+  For namespaced node (e.g., /tello1/aruco_tracker):
+  $ ros2 run aruco_opencv switch_marker_config 6X6_250 0.30 \
+      --ros-args -p node_name:=/tello1/aruco_tracker
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ DIRECT PARAMETER COMMANDS                                                    │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Set dictionary:
+  $ ros2 param set /aruco_tracker marker_dict "6X6_250"
+
+  Set marker size:
+  $ ros2 param set /aruco_tracker marker_size 0.30
+
+  Set both (run separately):
+  $ ros2 param set /tello1/aruco_tracker marker_dict "5X5_250"
+  $ ros2 param set /tello1/aruco_tracker marker_size 0.19
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ VERIFY CONFIGURATION                                                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Check current values:
+  $ ros2 param get /aruco_tracker marker_dict
+  $ ros2 param get /aruco_tracker marker_size
+
+  List all parameters:
+  $ ros2 param list /aruco_tracker
+
+  Watch node logs:
+  $ ros2 topic echo /rosout | grep aruco_tracker
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ SUPPORTED DICTIONARIES                                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Standard:  4X4_50   5X5_50   6X6_50   7X7_50
+             4X4_100  5X5_100  6X6_100  7X7_100
+             4X4_250  5X5_250  6X6_250  7X7_250    ← Most common
+             4X4_1000 5X5_1000 6X6_1000 7X7_1000
+
+  Special:   ARUCO_ORIGINAL
+             APRILTAG_16h5  APRILTAG_25h9
+             APRILTAG_36h10 APRILTAG_36h11
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ COMMON USE CASES                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Small markers for close-range (< 2m):
+  $ ros2 run aruco_opencv switch_marker_config 5X5_250 0.19
+
+  Large markers for long-range (> 2m):
+  $ ros2 run aruco_opencv switch_marker_config 6X6_250 0.30
+
+  High-precision markers (more bits):
+  $ ros2 run aruco_opencv switch_marker_config 7X7_250 0.25
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ MULTI-DRONE EXAMPLE                                                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Drone 1 uses large markers:
+  $ ros2 run aruco_opencv switch_marker_config 6X6_250 0.30 \
+      --ros-args -p node_name:=/tello1/aruco_tracker
+
+  Drone 2 uses small markers:
+  $ ros2 run aruco_opencv switch_marker_config 5X5_250 0.19 \
+      --ros-args -p node_name:=/tello2/aruco_tracker
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ TROUBLESHOOTING                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  ✗ No markers detected after switch:
+    → Verify physical markers match dictionary
+    → Check marker_size matches physical dimensions (with border)
+    → View debug: ros2 topic echo /aruco_tracker/debug
+
+  ✗ Parameter change rejected:
+    → Check spelling (case-sensitive): "5X5_250" not "5x5_250"
+    → Ensure marker_size > 0
+    → Verify node is active: ros2 lifecycle get /aruco_tracker
+
+  ✗ Service timeout:
+    → Confirm node running: ros2 node list | grep aruco
+    → Check namespace matches (for multi-drone)
+    → Wait for node to finish configuring
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ BEST PRACTICES                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  ✓ Switch during hover/standby (not during active marker approach)
+  ✓ Match configuration to physical printed markers
+  ✓ Test detection after switching: ros2 topic echo /aruco_detections
+  ✓ Document your marker setup (dict + size) for each physical marker
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ MORE INFORMATION                                                             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+  Full documentation:
+  → RUNTIME_CONFIG_SWITCHING.md (detailed guide)
+  → adaptive_marker_config_example.py (programmatic usage)
+
+  Generate markers:
+  $ ros2 run aruco_opencv create_marker <ID>
+  $ ros2 run aruco_opencv create_board
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  TIP: Marker size includes the white border!                                 ║
+║       Measure the full square (black + white) for accurate configuration     ║
+╚══════════════════════════════════════════════════════════════════════════════╝

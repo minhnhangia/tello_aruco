@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""
+Runtime ArUco marker configuration switcher.
+
+Usage:
+    ros2 run aruco_opencv switch_marker_config --ros-args -p node_name:=/tello1/aruco_tracker
+    
+    # Switch to 6x6_250 with marker size 0.30m
+    ros2 run aruco_opencv switch_marker_config 6X6_250 0.30 --ros-args -p node_name:=/tello1/aruco_tracker
+    
+    # Switch to 5x5_250 with marker size 0.19m  
+    ros2 run aruco_opencv switch_marker_config 5X5_250 0.19 --ros-args -p node_name:=/tello1/aruco_tracker
+"""
+
+import sys
+import rclpy
+from rclpy.node import Node
+from rcl_interfaces.msg import Parameter, ParameterType, ParameterValue
+
+
+class MarkerConfigSwitcher(Node):
+    def __init__(self):
+        super().__init__('marker_config_switcher')
+        
+        # Declare parameters
+        self.declare_parameter('node_name', '/aruco_tracker')
+        self.target_node = self.get_parameter('node_name').value
+        
+        self.get_logger().info(f'Targeting node: {self.target_node}')
+
+    def switch_config(self, dict_name: str, marker_size: float):
+        """Switch ArUco dictionary and marker size."""
+        
+        # Validate inputs
+        valid_dicts = [
+            '4X4_50', '4X4_100', '4X4_250', '4X4_1000',
+            '5X5_50', '5X5_100', '5X5_250', '5X5_1000',
+            '6X6_50', '6X6_100', '6X6_250', '6X6_1000',
+            '7X7_50', '7X7_100', '7X7_250', '7X7_1000',
+            'ARUCO_ORIGINAL', 'APRILTAG_16h5', 'APRILTAG_25h9',
+            'APRILTAG_36h10', 'APRILTAG_36h11'
+        ]
+        
+        if dict_name not in valid_dicts:
+            self.get_logger().error(
+                f'Invalid dictionary: {dict_name}. Valid options: {", ".join(valid_dicts)}'
+            )
+            return False
+            
+        if marker_size <= 0.0:
+            self.get_logger().error(f'Marker size must be positive, got: {marker_size}')
+            return False
+        
+        # Create parameter client
+        param_client = self.create_client(
+            rclpy.parameter.ParameterService,
+            f'{self.target_node}/set_parameters'
+        )
+        
+        if not param_client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().error(
+                f'Parameter service not available for node: {self.target_node}'
+            )
+            return False
+        
+        # Build parameter list
+        parameters = [
+            Parameter(
+                name='marker_dict',
+                value=ParameterValue(
+                    type=ParameterType.PARAMETER_STRING,
+                    string_value=dict_name
+                )
+            ),
+            Parameter(
+                name='marker_size',
+                value=ParameterValue(
+                    type=ParameterType.PARAMETER_DOUBLE,
+                    double_value=marker_size
+                )
+            )
+        ]
+        
+        # Set parameters
+        self.get_logger().info(
+            f'Setting marker_dict={dict_name}, marker_size={marker_size}m'
+        )
+        
+        request = rclpy.parameter.SetParameters.Request()
+        request.parameters = parameters
+        
+        future = param_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+        
+        if future.result() is not None:
+            result = future.result().results[0]
+            if result.successful:
+                self.get_logger().info('✓ Configuration updated successfully!')
+                return True
+            else:
+                self.get_logger().error(f'✗ Failed: {result.reason}')
+                return False
+        else:
+            self.get_logger().error('✗ Service call failed')
+            return False
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    
+    if len(sys.argv) < 3:
+        print(__doc__)
+        print("\nError: Missing arguments!")
+        print("Usage: switch_marker_config <DICT_NAME> <MARKER_SIZE>")
+        print("Example: switch_marker_config 6X6_250 0.30")
+        return 1
+    
+    dict_name = sys.argv[1]
+    try:
+        marker_size = float(sys.argv[2])
+    except ValueError:
+        print(f"Error: Invalid marker size '{sys.argv[2]}' - must be a number")
+        return 1
+    
+    switcher = MarkerConfigSwitcher()
+    success = switcher.switch_config(dict_name, marker_size)
+    
+    switcher.destroy_node()
+    rclpy.shutdown()
+    
+    return 0 if success else 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
